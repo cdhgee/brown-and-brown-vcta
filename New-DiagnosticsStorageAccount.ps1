@@ -8,13 +8,21 @@ Param(
   [string]$ResourceGroupName,
   [Parameter(Mandatory = $true)]
   [ValidateNotNullOrEmpty()]
-  [string]$Location
+  [string]$Location,
+  [Parameter(Mandatory = $true)]
+  [ValidateNotNullOrEmpty()]
+  [string]$ServiceAccountUPN
 )
 
 $params = @{
   storageAccountName = $StorageAccountName
 }
 
-New-AzResourceGroup -Name $ResourceGroupName -Location $Location -Force
+$rg = New-AzResourceGroup -Name $ResourceGroupName -Location $Location -Force
 
 New-AzResourceGroupDeployment -ResourceGroup $ResourceGroupName -TemplateFile "$PSScriptRoot/arm-templates/diagnosticsStorageAccount.json" -TemplateParameterObject $params
+
+$user = Get-AzADUser -UserPrincipalName $ServiceAccountUPN
+$role = Get-AzRoleDefinition -Name "Reader and Data Access"
+
+New-AzRoleAssignment -Scope $rg.ResourceId -ObjectId $user.Id -RoleDefinitionId $role.Id
