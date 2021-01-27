@@ -286,7 +286,7 @@
     },
     {
       "type": "Microsoft.Authorization/policyAssignments",
-      "name": "deploy-vcta-diagnostics",
+      "name": "[variables('policyPrefix')]",
       "apiVersion": "2020-09-01",
       "location": "eastus",
       "dependsOn": [
