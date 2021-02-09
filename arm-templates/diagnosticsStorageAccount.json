@@ -43,27 +43,46 @@
       }
     },
     {
-      "type": "Microsoft.Storage/storageAccounts/blobServices",
-      "apiVersion": "2020-08-01-preview",
       "name": "[concat(parameters('storageAccountName'), '/default')]",
+      "type": "Microsoft.Storage/storageAccounts/managementPolicies",
+      "apiVersion": "2020-08-01-preview",
       "dependsOn": [
-        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+        "[parameters('storageAccountName')]"
       ],
-      "sku": {
-        "name": "Standard_LRS",
-        "tier": "Standard"
-      },
       "properties": {
-        "containerDeleteRetentionPolicy": {
-          "enabled": true,
-          "days": 7
-        },
-        "cors": {
-          "corsRules": []
-        },
-        "deleteRetentionPolicy": {
-          "enabled": true,
-          "days": 7
+        "policy": {
+          "rules": [
+            {
+              "enabled": true,
+              "name": "SevenDayDelete",
+              "type": "Lifecycle",
+              "definition": {
+                "actions": {
+                  "baseBlob": {
+                    "delete": {
+                      "daysAfterModificationGreaterThan": 7
+                    }
+                  },
+                  "snapshot": {
+                    "delete": {
+                      "daysAfterCreationGreaterThan": 7
+                    }
+                  },
+                  "version": {
+                    "delete": {
+                      "daysAfterCreationGreaterThan": 7
+                    }
+                  }
+                },
+                "filters": {
+                  "blobTypes": [
+                    "blockBlob",
+                    "appendBlob"
+                  ]
+                }
+              }
+            }
+          ]
         }
       }
     }
