@@ -1,0 +1,16 @@
+[
+  {
+    "policyDefinitionId": "/providers/Microsoft.Management/managementGroups/--MGID--/providers/Microsoft.Authorization/policyDefinitions/vcta-diagnostics-windows",
+    "parameters": {
+      "storageAccount": {
+        "value": "[parameters('storageAccount')]"
+      },
+      "tagName": {
+        "value": "[parameters('tagName')]"
+      },
+      "tagValue": {
+        "value": "[parameters('tagValue')]"
+      }
+    }
+  }
+]
