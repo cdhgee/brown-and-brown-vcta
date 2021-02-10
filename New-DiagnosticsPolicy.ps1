@@ -11,7 +11,7 @@ Param(
   [string]$TagName,
   [Parameter(Mandatory = $true)]
   [ValidateNotNullOrEmpty()]
-  [string]$TagValue
+  [string[]]$TagValue
 )
 
 $params = @{
