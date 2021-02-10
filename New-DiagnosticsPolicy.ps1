@@ -11,7 +11,10 @@ Param(
   [string]$TagName,
   [Parameter(Mandatory = $true)]
   [ValidateNotNullOrEmpty()]
-  [string[]]$TagValue
+  [string[]]$TagValue,
+  [Parameter(Mandatory = $true)]
+  [ValidateNotNullOrEmpty()]
+  [string]$Location
 )
 
 $params = @{
@@ -23,4 +26,5 @@ $params = @{
 
 New-AzManagementGroupDeployment -ManagementGroupId $ManagementGroupId `
   -TemplateFile "$PSScriptRoot/arm-templates/deploy-vcta-diagnostics.json" `
-  -TemplateParameterObject $params
+  -TemplateParameterObject $params `
+  -Location $Location
