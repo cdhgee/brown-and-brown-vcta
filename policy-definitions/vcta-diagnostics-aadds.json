@@ -1,0 +1,161 @@
+{
+  "name": "vcta-diagnostics-aadds",
+  "type": "Microsoft.Authorization/policyDefinitions",
+  "properties": {
+    "displayName": "Enable Azure AD Domain Services diagnostic log collection for the Secureworks vCTA",
+    "policyType": "Custom",
+    "mode": "All",
+    "description": "This policy enables Azure AD Domain Services diagnostic logging, to be sent to Secureworks using the vCTA",
+    "metadata": {
+      "category": "Security"
+    },
+    "parameters": {
+      "storageAccount": {
+        "type": "string",
+        "metadata": {
+          "displayName": "Resource ID of the storage account to use for logging",
+          "strongType": "Microsoft.Storage/storageAccounts"
+        }
+      },
+      "metricCategories": {
+        "type": "array",
+        "defaultValue": []
+      },
+      "logCategories": {
+        "type": "array",
+        "defaultValue": [
+          "AccountLogon",
+          "AccountManagement",
+          "DetailTracking",
+          "DirectoryServiceAccess",
+          "LogonLogoff",
+          "ObjectAccess",
+          "PolicyChange",
+          "PrivilegeUse",
+          "SystemSecurity"
+        ],
+        "metadata": {
+          "displayName": "A list of the log categories to enable"
+        }
+      }
+    },
+    "policyRule": {
+      "if": {
+        "allOf": [
+          {
+            "field": "type",
+            "equals": "Microsoft.AAD/domainServices"
+          }
+        ]
+      },
+      "then": {
+        "effect": "deployIfNotExists",
+        "details": {
+          "type": "Microsoft.Insights/diagnosticSettings",
+          "roleDefinitionIds": [
+            "/providers/Microsoft.Authorization/roleDefinitions/749f88d5-cbae-40b8-bcfc-e573ddc772fa"
+          ],
+          "existenceCondition": {
+            "allOf": [
+              {
+                "field": "Microsoft.Insights/diagnosticSettings/storageAccountId",
+                "equals": "[parameters('storageAccount')]"
+              },
+              {
+                "field": "Microsoft.Insights/diagnosticSettings/logs.enabled",
+                "equals": true
+              }
+            ]
+          },
+          "deployment": {
+            "properties": {
+              "mode": "incremental",
+              "template": {
+                "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+                "contentVersion": "1.0.0.0",
+                "parameters": {
+                  "resourceName": {
+                    "type": "string"
+                  },
+                  "resourceType": {
+                    "type": "string"
+                  },
+                  "storageAccount": {
+                    "type": "string",
+                    "metadata": {
+                      "strongType": "Microsoft.Storage/storageAccounts"
+                    }
+                  },
+                  "logCategories": {
+                    "type": "array"
+                  },
+                  "metricCategories": {
+                    "type": "array"
+                  }
+                },
+                "variables": {
+                  "copy": [
+                    {
+                      "name": "metrics",
+                      "count": "[length(parameters('metricCategories'))]",
+                      "input": {
+                        "category": "[parameters('metricCategories')[copyIndex('metrics')]]",
+                        "enabled": true,
+                        "retentionPolicy": {
+                          "enabled": false,
+                          "days": 0
+                        }
+                      }
+                    },
+                    {
+                      "name": "logs",
+                      "count": "[length(parameters('logCategories'))]",
+                      "input": {
+                        "category": "[parameters('logCategories')[copyIndex('logs')]]",
+                        "enabled": true,
+                        "retentionPolicy": {
+                          "enabled": false,
+                          "days": 0
+                        }
+                      }
+                    }
+                  ]
+                },
+                "resources": [
+                  {
+                    "name": "[concat(parameters('resourceName'), '/Microsoft.Insights/vcta')]",
+                    "type": "[concat(parameters('resourceType'), '/providers/diagnosticSettings')]",
+                    "location": "[resourceGroup().location]",
+                    "apiVersion": "2017-05-01-preview",
+                    "properties": {
+                      "storageAccountId": "[parameters('storageAccount')]",
+                      "metrics": [],
+                      "logs": "[variables('logs')]"
+                    }
+                  }
+                ]
+              },
+              "parameters": {
+                "resourceName": {
+                  "value": "[field('fullName')]"
+                },
+                "resourceType": {
+                  "value": "[field('type')]"
+                },
+                "storageAccount": {
+                  "value": "[parameters('storageAccount')]"
+                },
+                "logCategories": {
+                  "value": "[parameters('logCategories')]"
+                },
+                "metricCategories": {
+                  "value": "[parameters('metricCategories')]"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

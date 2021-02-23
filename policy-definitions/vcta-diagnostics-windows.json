@@ -1,145 +1,179 @@
 {
-  "if": {
-    "allOf": [
-      {
-        "field": "type",
-        "equals": "Microsoft.Compute/virtualMachines"
+  "name": "vcta-diagnostics-windows",
+  "type": "Microsoft.Authorization/policyDefinitions",
+  "properties": {
+    "displayName": "Enable diagnostic setting collection on Windows VMs for the Secureworks vCTA",
+    "policyType": "Custom",
+    "mode": "All",
+    "description": "This policy deploys the Azure diagnostics extension to Windows VMs matching a specific tag-value pair, to enable log collection in Secureworks using the vCTA",
+    "metadata": {
+      "category": "Security"
+    },
+    "parameters": {
+      "storageAccount": {
+        "type": "string",
+        "metadata": {
+          "displayName": "Resource ID of the storage account to use for logging",
+          "strongType": "Microsoft.Storage/storageAccounts"
+        }
       },
-      {
-        "field": "Microsoft.Compute/virtualMachines/storageProfile.osDisk.osType",
-        "equals": "Windows"
+      "tagName": {
+        "type": "string",
+        "metadata": {
+          "displayName": "The tag name to match"
+        }
       },
-      {
-        "field": "[concat('tags[', parameters('tagName'), ']')]",
-        "in": "[parameters('tagValue')]"
+      "tagValue": {
+        "type": "array",
+        "metadata": {
+          "displayName": "The tag value(s) to match"
+        }
       }
-    ]
-  },
-  "then": {
-    "effect": "deployIfNotExists",
-    "details": {
-      "type": "Microsoft.Compute/virtualMachines/extensions",
-      "roleDefinitionIds": [
-        "/providers/Microsoft.Authorization/roleDefinitions/9980e02c-c2be-4d73-94e8-173b1dc7cf3c"
-      ],
-      "existenceCondition": {
+    },
+    "policyRule": {
+      "if": {
         "allOf": [
           {
-            "field": "Microsoft.Compute/virtualMachines/extensions/type",
-            "equals": "IaaSDiagnostics"
+            "field": "type",
+            "equals": "Microsoft.Compute/virtualMachines"
           },
           {
-            "field": "Microsoft.Compute/virtualMachines/extensions/publisher",
-            "equals": "Microsoft.Azure.Diagnostics"
+            "field": "Microsoft.Compute/virtualMachines/storageProfile.osDisk.osType",
+            "equals": "Windows"
           },
           {
-            "field": "Microsoft.Compute/virtualMachines/extensions/provisioningState",
-            "equals": "Succeeded"
+            "field": "[concat('tags[', parameters('tagName'), ']')]",
+            "in": "[parameters('tagValue')]"
           }
         ]
       },
-      "deployment": {
-        "properties": {
-          "mode": "incremental",
-          "template": {
-            "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
-            "contentVersion": "1.0.0.0",
-            "parameters": {
-              "vmName": {
-                "type": "string"
-              },
-              "storageAccount": {
-                "type": "string",
-                "metadata": {
-                  "strongType": "Microsoft.Storage/storageAccounts"
-                }
-              },
-              "now": {
-                "type": "string",
-                "defaultValue": "[utcNow('yyyy-MM-dd''T''HH:mm:ssZ')]"
-              }
-            },
-            "variables": {
-              "sasProperties": {
-                "signedServices": "bt",
-                "signedPermission": "acuw",
-                "signedExpiry": "[dateTimeAdd(parameters('now'), 'P30Y')]",
-                "signedResourceTypes": "co",
-                "signedProtocol": "https",
-                "keyToSign": "key1"
-              },
-              "storageAccountName": "[last(split(parameters('storageAccount'), '/'))]"
-            },
-            "resources": [
+      "then": {
+        "effect": "deployIfNotExists",
+        "details": {
+          "type": "Microsoft.Compute/virtualMachines/extensions",
+          "roleDefinitionIds": [
+            "/providers/Microsoft.Authorization/roleDefinitions/9980e02c-c2be-4d73-94e8-173b1dc7cf3c"
+          ],
+          "existenceCondition": {
+            "allOf": [
               {
-                "name": "[concat(parameters('vmName'), '/Microsoft.Insights.VMDiagnosticsSettings')]",
-                "type": "Microsoft.Compute/virtualMachines/extensions",
-                "location": "[resourceGroup().location]",
-                "apiVersion": "2020-12-01",
-                "tags": {
-                  "displayName": "AzureDiagnostics"
-                },
-                "properties": {
-                  "publisher": "Microsoft.Azure.Diagnostics",
-                  "type": "IaaSDiagnostics",
-                  "typeHandlerVersion": "1.18",
-                  "autoUpgradeMinorVersion": true,
-                  "settings": {
-                    "WadCfg": {
-                      "DiagnosticMonitorConfiguration": {
-                        "overallQuotaInMB": 5120,
-                        "WindowsEventLog": {
-                          "scheduledTransferPeriod": "PT1M",
-                          "DataSource": [
-                            {
-                              "name": "Application!*[System[(Level=1 or Level=2 or Level=3 or Level=4 or Level=5)]]"
-                            },
-                            {
-                              "name": "System!*[System[(Level=1 or Level=2 or Level=3 or Level=4 or Level=5)]]"
-                            },
-                            {
-                              "name": "Security!*[System[(band(Keywords,13510798882111488))]]"
-                            }
-                          ]
-                        },
-                        "PerformanceCounters": {
-                          "scheduledTransferPeriod": "PT1M",
-                          "PerformanceCounterConfiguration": []
-                        },
-                        "Directories": {
-                          "scheduledTransferPeriod": "PT1M"
-                        },
-                        "Metrics": {
-                          "resourceId": "[resourceId('Microsoft.Compute/virtualMachines', parameters('vmName'))]",
-                          "MetricAggregation": [
-                            {
-                              "scheduledTransferPeriod": "PT1H"
-                            },
-                            {
-                              "scheduledTransferPeriod": "PT1M"
-                            }
-                          ]
-                        }
-                      }
-                    },
-                    "StorageAccount": "[variables('storageAccountName')]",
-                    "StorageType": "Blob"
-                  },
-                  "protectedSettings": {
-                    "storageAccountName": "[variables('storageAccountName')]",
-                    "storageAccountEndpoint": "[concat('https://', environment().suffixes.storage)]",
-                    "storageAccountSasToken": "[listAccountSas(parameters('storageAccount'), '2019-06-01', variables('sasProperties')).accountSasToken]"
-                  }
-                }
+                "field": "Microsoft.Compute/virtualMachines/extensions/type",
+                "equals": "IaaSDiagnostics"
+              },
+              {
+                "field": "Microsoft.Compute/virtualMachines/extensions/publisher",
+                "equals": "Microsoft.Azure.Diagnostics"
+              },
+              {
+                "field": "Microsoft.Compute/virtualMachines/extensions/provisioningState",
+                "equals": "Succeeded"
               }
             ]
           },
-          "parameters": {
-            "vmName": {
-              "value": "[field('fullName')]"
-            },
-            "storageAccount": {
-              "value": "[parameters('storageAccount')]"
+          "deployment": {
+            "properties": {
+              "mode": "incremental",
+              "template": {
+                "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+                "contentVersion": "1.0.0.0",
+                "parameters": {
+                  "vmName": {
+                    "type": "string"
+                  },
+                  "storageAccount": {
+                    "type": "string",
+                    "metadata": {
+                      "strongType": "Microsoft.Storage/storageAccounts"
+                    }
+                  },
+                  "now": {
+                    "type": "string",
+                    "defaultValue": "[utcNow('yyyy-MM-dd''T''HH:mm:ssZ')]"
+                  }
+                },
+                "variables": {
+                  "sasProperties": {
+                    "signedServices": "bt",
+                    "signedPermission": "acuw",
+                    "signedExpiry": "[dateTimeAdd(parameters('now'), 'P30Y')]",
+                    "signedResourceTypes": "co",
+                    "signedProtocol": "https",
+                    "keyToSign": "key1"
+                  },
+                  "storageAccountName": "[last(split(parameters('storageAccount'), '/'))]"
+                },
+                "resources": [
+                  {
+                    "name": "[concat(parameters('vmName'), '/Microsoft.Insights.VMDiagnosticsSettings')]",
+                    "type": "Microsoft.Compute/virtualMachines/extensions",
+                    "location": "[resourceGroup().location]",
+                    "apiVersion": "2020-12-01",
+                    "tags": {
+                      "displayName": "AzureDiagnostics"
+                    },
+                    "properties": {
+                      "publisher": "Microsoft.Azure.Diagnostics",
+                      "type": "IaaSDiagnostics",
+                      "typeHandlerVersion": "1.18",
+                      "autoUpgradeMinorVersion": true,
+                      "settings": {
+                        "WadCfg": {
+                          "DiagnosticMonitorConfiguration": {
+                            "overallQuotaInMB": 5120,
+                            "WindowsEventLog": {
+                              "scheduledTransferPeriod": "PT1M",
+                              "DataSource": [
+                                {
+                                  "name": "Application!*[System[(Level=1 or Level=2 or Level=3 or Level=4 or Level=5)]]"
+                                },
+                                {
+                                  "name": "System!*[System[(Level=1 or Level=2 or Level=3 or Level=4 or Level=5)]]"
+                                },
+                                {
+                                  "name": "Security!*[System[(band(Keywords,13510798882111488))]]"
+                                }
+                              ]
+                            },
+                            "PerformanceCounters": {
+                              "scheduledTransferPeriod": "PT1M",
+                              "PerformanceCounterConfiguration": []
+                            },
+                            "Directories": {
+                              "scheduledTransferPeriod": "PT1M"
+                            },
+                            "Metrics": {
+                              "resourceId": "[resourceId('Microsoft.Compute/virtualMachines', parameters('vmName'))]",
+                              "MetricAggregation": [
+                                {
+                                  "scheduledTransferPeriod": "PT1H"
+                                },
+                                {
+                                  "scheduledTransferPeriod": "PT1M"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "StorageAccount": "[variables('storageAccountName')]",
+                        "StorageType": "Blob"
+                      },
+                      "protectedSettings": {
+                        "storageAccountName": "[variables('storageAccountName')]",
+                        "storageAccountEndpoint": "[concat('https://', environment().suffixes.storage)]",
+                        "storageAccountSasToken": "[listAccountSas(parameters('storageAccount'), '2019-06-01', variables('sasProperties')).accountSasToken]"
+                      }
+                    }
+                  }
+                ]
+              },
+              "parameters": {
+                "vmName": {
+                  "value": "[field('fullName')]"
+                },
+                "storageAccount": {
+                  "value": "[parameters('storageAccount')]"
+                }
+              }
             }
           }
         }

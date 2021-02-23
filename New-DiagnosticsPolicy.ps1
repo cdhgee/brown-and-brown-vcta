@@ -17,52 +17,44 @@ Param(
   [string]$Location
 )
 
-$params = @{
-  storageAccount    = $StorageAccount
-  tagName           = $TagName
-  tagValue          = $TagValue
-  managementGroupId = $ManagementGroupId
-}
+$policyDir = "$PSScriptRoot/policy-definitions"
+$policySetDir = "$PSScriptRoot/policy-set-definitions"
 
-$policyDefinitions = @(
-  @{
-    Name        = "vcta-diagnostics-windows"
-    DisplayName = "Enable diagnostic setting collection on Windows VMs for the Secureworks vCTA"
-    Description = "This policy deploys the Azure diagnostics extension to Windows VMs matching a specific tag-value pair, to enable log collection in Secureworks using the vCTA"
-    Mode        = "All"
+$policyDefinitions = Get-ChildItem -Path $policyDir -Filter "*.json"
+
+Foreach ($policyFile in $policyDefinitions) {
+
+  $definition = Get-Content -Path $policyFile.FullName -Encoding utf8 `
+  | ConvertFrom-Json -Depth 100
+
+  $pieces = @{
+    Policy              = $definition.properties.policyRule | ConvertTo-Json -Depth 100
+    Parameter           = $definition.properties.parameters | ConvertTo-Json -Depth 100
+    Metadata            = $definition.properties.metadata | ConvertTo-Json -Depth 100
+    ManagementGroupName = $ManagementGroupId
+    Name                = $definition.name
+    DisplayName         = $definition.properties.displayName
+    Description         = $definition.properties.description
+    Mode                = $definition.properties.mode
   }
-  @{
-    Name        = "vcta-diagnostics-nsg"
-    DisplayName = "Enable NSG flow log collection for the Secureworks vCTA"
-    Description = "This policy enables NSG flow logs, to be sent to Secureworks using the vCTA"
-    Mode        = "All"
-  }
-)
 
-Foreach ($def in $policyDefinitions) {
-
-  New-AzPolicyDefinition `
-    -Policy "$PSScriptRoot/policy-definitions/$($def.Name).json" `
-    -Parameter "$PSScriptRoot/policy-definitions/$($def.Name)-parameters.json" `
-    -Metadata "$PSScriptRoot/policy-definitions/$($def.Name)-metadata.json" `
-    -ManagementGroupName $ManagementGroupId `
-    @def
+  New-AzPolicyDefinition @pieces
 
 }
 
 $policySetName = "vcta-diagnostics"
-$policySetDisplayName = "Enable diagnostic setting collection for the Secureworks vCTA"
+$policySetDisplayName = "Enable log collection for the Secureworks vCTA"
 $policySetDescription = "This policy initiative enables diagnostic log collection for VMs and other resources that is sent to Secureworks via the Azure vCTA" `
 
-$setDefinition = (Get-Content -Path "$PSScriptRoot/policy-set-definitions/vcta-diagnostics.json" -Encoding utf8 -Raw) -replace "--MGID--", $ManagementGroupId
+$setDefinition = (Get-Content -Path "$policySetDir/vcta-diagnostics.json" -Encoding utf8 -Raw) -replace "--MGID--", $ManagementGroupId
 
 New-AzPolicySetDefinition `
   -Name $policySetName `
   -DisplayName $policySetDisplayName `
   -Description $policySetDescription `
   -PolicyDefinition $setDefinition `
-  -Parameter "$PSScriptRoot/policy-set-definitions/vcta-diagnostics-parameters.json" `
-  -Metadata "$PSScriptRoot/policy-set-definitions/vcta-diagnostics-metadata.json" `
+  -Parameter "$policySetDir/vcta-diagnostics-parameters.json" `
+  -Metadata "$policySetDir/vcta-diagnostics-metadata.json" `
   -ManagementGroupName $ManagementGroupId
 
 $psd = Get-AzPolicySetDefinition -Id "/providers/Microsoft.Management/managementGroups/$ManagementGroupId/providers/Microsoft.Authorization/policySetDefinitions/$policySetName"
@@ -79,7 +71,7 @@ New-AzPolicyAssignment `
   -Description $policySetDescription `
   -PolicySetDefinition $psd `
   -PolicyParameterObject $policySetParams `
-  -Metadata "$PSScriptRoot/policy-set-definitions/vcta-diagnostics-metadata.json" `
+  -Metadata "$policySetDir/vcta-diagnostics-metadata.json" `
   -Scope "/providers/Microsoft.Management/managementGroups/$ManagementGroupId" `
   -AssignIdentity `
   -Location $Location
@@ -89,8 +81,9 @@ $ass = Get-AzPolicyAssignment -Id "/providers/Microsoft.Management/managementGro
 $mgScope = "/providers/Microsoft.Management/managementGroups/$ManagementGroupId"
 
 $mgRoles = @(
+  "Monitoring Contributor",
+  "Network Contributor",
   "Virtual Machine Contributor"
-  "Network Contributor"
 )
 
 Foreach ($role in $mgRoles) {
