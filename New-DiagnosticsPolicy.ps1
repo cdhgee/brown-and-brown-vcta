@@ -60,9 +60,10 @@ New-AzPolicySetDefinition `
 $psd = Get-AzPolicySetDefinition -Id "/providers/Microsoft.Management/managementGroups/$ManagementGroupId/providers/Microsoft.Authorization/policySetDefinitions/$policySetName"
 
 $policySetParams = @{
-  storageAccount = $StorageAccount
-  tagName        = $TagName
-  tagValue       = $TagValue
+  storageAccount              = $StorageAccount
+  storageAccountResourceGroup = (($StorageAccount -split "/")[0..4] -join "/")
+  tagName                     = $TagName
+  tagValue                    = $TagValue
 }
 
 New-AzPolicyAssignment `
@@ -76,15 +77,29 @@ New-AzPolicyAssignment `
   -AssignIdentity `
   -Location $Location
 
-$ass = Get-AzPolicyAssignment -Id "/providers/Microsoft.Management/managementGroups/$ManagementGroupId/providers/Microsoft.Authorization/policyAssignments/$policySetName"
 
 $mgScope = "/providers/Microsoft.Management/managementGroups/$ManagementGroupId"
 
 $mgRoles = @(
   "Monitoring Contributor",
   "Network Contributor",
-  "Virtual Machine Contributor"
+  "Virtual Machine Contributor",
+  "Storage Account Contributor"
 )
+
+$ass = Get-AzPolicyAssignment -Id "/providers/Microsoft.Management/managementGroups/$ManagementGroupId/providers/Microsoft.Authorization/policyAssignments/$policySetName"
+
+# Wait for managed identity to be ready
+
+While ($true) {
+  $sp = Get-AzADServicePrincipal -ObjectId $ass.Identity.principalId -ErrorAction Ignore
+  If ($sp -ne $null) {
+    break
+  }
+  Else {
+    Start-Sleep -Seconds 1
+  }
+}
 
 Foreach ($role in $mgRoles) {
 
@@ -95,8 +110,10 @@ Foreach ($role in $mgRoles) {
 
 }
 
+$storageAccountRG = ($StorageAccount -Split "/")[0..4] -join "/"
+
 New-AzRoleAssignment `
   -ObjectId $ass.Identity.principalId `
-  -Scope $StorageAccount `
+  -Scope $storageAccountRG `
   -RoleDefinitionName "Reader and Data Access"
 

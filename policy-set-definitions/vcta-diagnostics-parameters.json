@@ -6,6 +6,13 @@
       "strongType": "Microsoft.Storage/storageAccounts"
     }
   },
+  "storageAccountResourceGroup": {
+    "type": "string",
+    "metadata": {
+      "displayName": "Resource group to use for storage accounts created for NSG flow logs",
+      "strongType": "existingResourceGroups"
+    }
+  },
   "tagName": {
     "type": "string",
     "metadata": {

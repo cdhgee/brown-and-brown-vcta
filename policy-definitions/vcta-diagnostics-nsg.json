@@ -10,11 +10,11 @@
       "category": "Security"
     },
     "parameters": {
-      "storageAccount": {
+      "storageAccountResourceGroup": {
         "type": "string",
         "metadata": {
-          "displayName": "Resource ID of the storage account to use for logging",
-          "strongType": "Microsoft.Storage/storageAccounts"
+          "displayName": "Resource group to use for storage accounts used for logging",
+          "strongType": "existingResourceGroups"
         }
       },
       "tagName": {
@@ -56,7 +56,8 @@
         "details": {
           "type": "Microsoft.Network/networkWatchers/flowLogs",
           "roleDefinitionIds": [
-            "/providers/Microsoft.Authorization/roleDefinitions/4d97b98b-1d4f-4787-a291-c67834d212e7"
+            "/providers/Microsoft.Authorization/roleDefinitions/4d97b98b-1d4f-4787-a291-c67834d212e7",
+            "/providers/Microsoft.Authorization/roleDefinitions/17d1049b-9a84-46fb-8f53-869881c3d3ab"
           ],
           "name": "[if(empty(coalesce(field('Microsoft.Network/networkSecurityGroups/flowLogs[*].id'))), 'null/null', concat(split(first(field('Microsoft.Network/networkSecurityGroups/flowLogs[*].id')), '/')[8], '/', split(first(field('Microsoft.Network/networkSecurityGroups/flowLogs[*].id')), '/')[10]))]",
           "resourceGroupName": "[parameters('flowLogsResourceGroup')]",
@@ -95,16 +96,22 @@
                       "strongType": "location"
                     }
                   },
-                  "storageAccount": {
+                  "storageAccountResourceGroup": {
                     "type": "string",
                     "metadata": {
-                      "strongType": "Microsoft.Storage/storageAccounts"
+                      "displayName": "Resource group to use for storage accounts used for logging",
+                      "strongType": "existingResourceGroups"
                     }
                   }
                 },
                 "variables": {
                   "nsgName": "[last(split(parameters('nsg'), '/'))]",
-                  "nsgRG": "[split(parameters('nsg'), '/')[4]]"
+                  "nsgRG": "[split(parameters('nsg'), '/')[4]]",
+                  "stSubscription": "[split(parameters('storageAccountResourceGroup'), '/')[2]]",
+                  "stResourceGroup": "[split(parameters('storageAccountResourceGroup'), '/')[4]]",
+                  "storageAccountName": "[substring(replace(guid('nsgFlowLogsStorageAccount', 'vcta', parameters('storageAccountResourceGroup'), parameters('nsgLocation')), '-', ''), 8)]",
+                  "storageAccountId": "[resourceId(variables('stSubscription'), variables('stResourceGroup'), 'Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
+                  "storageAccountDeploymentName": "[concat('nsgFlowLogsStorageAccountTemplate-', variables('storageAccountName'))]"
                 },
                 "resources": [
                   {
@@ -115,16 +122,112 @@
                     "properties": {}
                   },
                   {
+                    "type": "Microsoft.Resources/deployments",
+                    "apiVersion": "2020-10-01",
+                    "name": "[variables('storageAccountDeploymentName')]",
+                    "subscriptionId": "[variables('stSubscription')]",
+                    "resourceGroup": "[variables('stResourceGroup')]",
+                    "properties": {
+                      "mode": "Incremental",
+                      "template": {
+                        "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+                        "contentVersion": "1.0.0.0",
+                        "resources": [
+                          {
+                            "type": "Microsoft.Storage/storageAccounts",
+                            "apiVersion": "2020-08-01-preview",
+                            "name": "[variables('storageAccountName')]",
+                            "location": "[parameters('nsgLocation')]",
+                            "sku": {
+                              "name": "Standard_LRS",
+                              "tier": "Standard"
+                            },
+                            "kind": "StorageV2",
+                            "properties": {
+                              "minimumTlsVersion": "TLS1_2",
+                              "allowBlobPublicAccess": true,
+                              "networkAcls": {
+                                "bypass": "AzureServices",
+                                "virtualNetworkRules": [],
+                                "defaultAction": "Allow"
+                              },
+                              "supportsHttpsTrafficOnly": true,
+                              "encryption": {
+                                "services": {
+                                  "file": {
+                                    "keyType": "Account",
+                                    "enabled": true
+                                  },
+                                  "blob": {
+                                    "keyType": "Account",
+                                    "enabled": true
+                                  }
+                                },
+                                "keySource": "Microsoft.Storage"
+                              },
+                              "accessTier": "Hot"
+                            }
+                          },
+                          {
+                            "name": "[concat(variables('storageAccountName'), '/default')]",
+                            "type": "Microsoft.Storage/storageAccounts/managementPolicies",
+                            "apiVersion": "2020-08-01-preview",
+                            "dependsOn": [
+                              "[variables('storageAccountName')]"
+                            ],
+                            "properties": {
+                              "policy": {
+                                "rules": [
+                                  {
+                                    "enabled": true,
+                                    "name": "SevenDayDelete",
+                                    "type": "Lifecycle",
+                                    "definition": {
+                                      "actions": {
+                                        "baseBlob": {
+                                          "delete": {
+                                            "daysAfterModificationGreaterThan": 7
+                                          }
+                                        },
+                                        "snapshot": {
+                                          "delete": {
+                                            "daysAfterCreationGreaterThan": 7
+                                          }
+                                        },
+                                        "version": {
+                                          "delete": {
+                                            "daysAfterCreationGreaterThan": 7
+                                          }
+                                        }
+                                      },
+                                      "filters": {
+                                        "blobTypes": [
+                                          "blockBlob",
+                                          "appendBlob"
+                                        ]
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  {
                     "type": "Microsoft.Network/networkWatchers/flowLogs",
                     "name": "[concat('NetworkWatcher_', parameters('nsgLocation'), '/', variables('nsgRG'), '-', variables('nsgName'))]",
                     "apiVersion": "2020-11-01",
                     "location": "[parameters('nsgLocation')]",
                     "dependsOn": [
-                      "[concat('NetworkWatcher_', parameters('nsgLocation'))]"
+                      "[concat('NetworkWatcher_', parameters('nsgLocation'))]",
+                      "[resourceId(variables('stSubscription'), variables('stResourceGroup'), 'Microsoft.Resources/deployments', variables('storageAccountDeploymentName'))]"
                     ],
                     "properties": {
                       "targetResourceId": "[parameters('nsg')]",
-                      "storageId": "[parameters('storageAccount')]",
+                      "storageId": "[variables('storageAccountId')]",
                       "enabled": "true",
                       "retentionPolicy": {
                         "days": "7",
@@ -145,8 +248,8 @@
                 "nsgLocation": {
                   "value": "[field('location')]"
                 },
-                "storageAccount": {
-                  "value": "[parameters('storageAccount')]"
+                "storageAccountResourceGroup": {
+                  "value": "[parameters('storageAccountResourceGroup')]"
                 }
               }
             }
