@@ -12,5 +12,19 @@
         "value": "[parameters('tagValue')]"
       }
     }
+  },
+  {
+    "policyDefinitionId": "/providers/Microsoft.Management/managementGroups/--MGID--/providers/Microsoft.Authorization/policyDefinitions/vcta-diagnostics-nsg",
+    "parameters": {
+      "storageAccount": {
+        "value": "[parameters('storageAccount')]"
+      },
+      "tagName": {
+        "value": "[parameters('tagName')]"
+      },
+      "tagValue": {
+        "value": "[parameters('tagValue')]"
+      }
+    }
   }
 ]

@@ -23,12 +23,6 @@ $params = @{
   tagValue          = $TagValue
   managementGroupId = $ManagementGroupId
 }
-<#
-New-AzManagementGroupDeployment -ManagementGroupId $ManagementGroupId `
-  -TemplateFile "$PSScriptRoot/arm-templates/deploy-vcta-diagnostics.json" `
-  -TemplateParameterObject $params `
-  -Location $Location
-#>
 
 $policyDefinitions = @(
   @{
