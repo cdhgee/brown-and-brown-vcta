@@ -109,7 +109,10 @@
                   "nsgRG": "[split(parameters('nsg'), '/')[4]]",
                   "stSubscription": "[split(parameters('storageAccountResourceGroup'), '/')[2]]",
                   "stResourceGroup": "[split(parameters('storageAccountResourceGroup'), '/')[4]]",
-                  "storageAccountName": "[substring(replace(guid('nsgFlowLogsStorageAccount', 'vcta', parameters('storageAccountResourceGroup'), parameters('nsgLocation')), '-', ''), 8)]",
+                  "storageAccountPrefix": "st025351",
+                  "storageAccountSuffix": "prod",
+                  "storageAccountSubtraction": "[sub(24, add(length(variables('storageAccountPrefix')), length(variables('storageAccountSuffix'))))]",
+                  "storageAccountName": "[concat(variables('storageAccountPrefix'), substring(uniqueString(variables('stSubscription'), parameters('nsgLocation')), 0, variables('storageAccountSubtraction')), variables('storageAccountSuffix'))]",
                   "storageAccountId": "[resourceId(variables('stSubscription'), variables('stResourceGroup'), 'Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
                   "storageAccountDeploymentName": "[concat('nsgFlowLogsStorageAccountTemplate-', variables('storageAccountName'))]"
                 },
