@@ -80,6 +80,12 @@
                   "vmName": {
                     "type": "string"
                   },
+                  "vmLocation": {
+                    "type": "string",
+                    "metadata": {
+                      "strongType": "location"
+                    }
+                  },
                   "storageAccount": {
                     "type": "string",
                     "metadata": {
@@ -106,7 +112,7 @@
                   {
                     "name": "[concat(parameters('vmName'), '/Microsoft.Insights.VMDiagnosticsSettings')]",
                     "type": "Microsoft.Compute/virtualMachines/extensions",
-                    "location": "[resourceGroup().location]",
+                    "location": "[parameters('vmLocation')]",
                     "apiVersion": "2020-12-01",
                     "tags": {
                       "displayName": "AzureDiagnostics"
@@ -169,6 +175,9 @@
               "parameters": {
                 "vmName": {
                   "value": "[field('fullName')]"
+                },
+                "vmLocation": {
+                  "value": "[field('location')]"
                 },
                 "storageAccount": {
                   "value": "[parameters('storageAccount')]"
