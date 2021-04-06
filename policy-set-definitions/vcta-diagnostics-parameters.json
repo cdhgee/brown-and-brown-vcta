@@ -11,7 +11,8 @@
     "metadata": {
       "displayName": "Resource group to use for storage accounts created for NSG flow logs",
       "strongType": "existingResourceGroups"
-    }
+    },
+    "defaultValue": "--placeholder--"
   },
   "tagName": {
     "type": "string",
